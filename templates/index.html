@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sound to Text Converter</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 20px;
+            background: #f9f9f9;
+        }
+        
+        .upload-area:hover {
+            border-color: #667eea;
+            background: #f0f8ff;
+        }
+        
+        input[type="file"] {
+            margin: 20px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            width: 100%;
+        }
+        
+        select {
+            padding: 10px;
+            margin: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        
+        button:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+        
+        .result {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f0f8ff;
+            border-radius: 10px;
+            border: 1px solid #ddd;
+        }
+        
+        .error {
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            border: 1px solid #ffcdd2;
+        }
+        
+        .success {
+            background: #e8f5e8;
+            color: #2e7d32;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            border: 1px solid #c8e6c9;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .metadata {
+            font-size: 14px;
+            color: #666;
+            margin-top: 10px;
+        }
+        
+        .text-result {
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            white-space: pre-wrap;
+            line-height: 1.6;
+        }
+        
+        .copy-btn {
+            background: #4caf50;
+            margin-top: 10px;
+        }
+        
+        .copy-btn:hover {
+            background: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 Sound to Text Converter</h1>
+        
+        <div class="upload-area">
+            <h3>Upload Audio File</h3>
+            <p>Select an audio file to convert to text</p>
+            
+            <form id="uploadForm" enctype="multipart/form-data">
+                <input type="file" id="fileInput" name="file" accept="audio/*" required>
+                
+                <div>
+                    <select name="engine" id="engine">
+                        <option value="google">Google (Online)</option>
+                        <option value="mock">Mock (Testing)</option>
+                    </select>
+                    
+                    <select name="language" id="language">
+                        <option value="en-US">English (US)</option>
+                        <option value="en-GB">English (UK)</option>
+                        <option value="es-ES">Spanish</option>
+                        <option value="fr-FR">French</option>
+                        <option value="de-DE">German</option>
+                    </select>
+                </div>
+                
+                <button type="submit">Upload & Transcribe</button>
+            </form>
+        </div>
+        
+        <div id="loading" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>Processing your audio file... This may take a moment.</p>
+        </div>
+        
+        <div id="result" class="result" style="display: none;">
+            <h3>Transcription Result</h3>
+            <div id="resultText" class="text-result"></div>
+            <div id="resultMeta" class="metadata"></div>
+            <button class="copy-btn" onclick="copyToClipboard()">📋 Copy Text</button>
+        </div>
+        
+        <div id="error" class="error" style="display: none;">
+            <strong>Error:</strong> <span id="errorMessage"></span>
+        </div>
+        
+        <!-- Health Status -->
+        <div style="margin-top: 30px; padding: 15px; background: #f5f5f5; border-radius: 5px;">
+            <h4>Service Status</h4>
+            <button onclick="checkHealth()">Check Health</button>
+            <div id="healthStatus" style="margin-top: 10px;"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentResult = null;
+
+        // Form submission
+        document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData();
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showError('Please select a file');
+                return;
+            }
+            
+            formData.append('file', file);
+            formData.append('engine', document.getElementById('engine').value);
+            formData.append('language', document.getElementById('language').value);
+            
+            showLoading();
+            hideError();
+            hideResult();
+            
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                hideLoading();
+                
+                if (data.success) {
+                    showResult(data.result);
+                } else {
+                    showError(data.error || 'Upload failed');
+                }
+                
+            } catch (error) {
+                hideLoading();
+                showError('Network error: ' + error.message);
+            }
+        });
+        
+        // Health check
+        async function checkHealth() {
+            try {
+                const response = await fetch('/health');
+                const data = await response.json();
+                
+                document.getElementById('healthStatus').innerHTML = `
+                    <div class="success">
+                        <strong>Status:</strong> ${data.status}<br>
+                        <strong>Engines:</strong> ${data.supported_engines?.join(', ') || 'None'}<br>
+                        <strong>Formats:</strong> ${data.supported_formats?.join(', ') || 'None'}<br>
+                        <strong>Speech Recognition:</strong> ${data.speech_recognition_available ? 'Available' : 'Mock Mode'}<br>
+                        <strong>Version:</strong> ${data.version || 'Unknown'}
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('healthStatus').innerHTML = `
+                    <div class="error">Health check failed: ${error.message}</div>
+                `;
+            }
+        }
+        
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+        }
+        
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+        
+        function showResult(result) {
+            currentResult = result;
+            document.getElementById('resultText').textContent = result.text || 'No text available';
+            document.getElementById('resultMeta').innerHTML = `
+                <strong>Words:</strong> ${result.word_count || 0} | 
+                <strong>Duration:</strong> ${result.duration || 0}s | 
+                <strong>Engine:</strong> ${result.engine || 'Unknown'} | 
+                <strong>Processing:</strong> ${result.processing_time || 0}s
+                ${result.mock_mode ? ' | <strong>Mock Mode</strong>' : ''}
+            `;
+            document.getElementById('result').style.display = 'block';
+        }
+        
+        function hideResult() {
+            document.getElementById('result').style.display = 'none';
+        }
+        
+        function showError(message) {
+            document.getElementById('errorMessage').textContent = message;
+            document.getElementById('error').style.display = 'block';
+        }
+        
+        function hideError() {
+            document.getElementById('error').style.display = 'none';
+        }
+        
+        function copyToClipboard() {
+            if (!currentResult) return;
+            
+            navigator.clipboard.writeText(currentResult.text).then(() => {
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = '✅ Copied!';
+                btn.style.background = '#4caf50';
+                
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.style.background = '#4caf50';
+                }, 2000);
+            }).catch((err) => {
+                alert('Could not copy text: ' + err.message);
+            });
+        }
+        
+        // Auto-check health on load
+        window.addEventListener('load', () => {
+            checkHealth();
+        });
+    </script>
+</body>
+</html>
