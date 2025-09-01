@@ -1,0 +1,30 @@
+# Flask web framework
+Flask==3.0.0
+Flask-CORS==4.0.0
+
+# Core speech recognition library
+SpeechRecognition==3.10.1
+
+# Audio processing and format conversion
+pydub==0.25.1
+
+# Additional audio codec support
+ffmpeg-python==0.2.0
+
+# For offline speech recognition (optional)
+pocketsphinx==5.0.3
+
+# For microphone input
+pyaudio==0.2.14
+
+# For better audio quality (optional)
+webrtcvad==2.0.10
+
+# For API keys management (optional)
+python-dotenv==1.0.0
+
+# Web server for production (optional)
+gunicorn==21.2.0
+
+# File handling and security
+Werkzeug==3.0.1
